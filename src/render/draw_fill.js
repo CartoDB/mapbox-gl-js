@@ -70,7 +70,7 @@ function drawFillTiles(painter, sourceCache, layer, coords, depthMode, colorMode
         programName = image ? 'fillPattern' : 'fill';
         drawMode = gl.TRIANGLES;
     } else {
-        programName = image ? 'fillOutlinePattern' : 'fillOutline';
+        programName = image && !layer.getPaintProperty('fill-outline-color') ? 'fillOutlinePattern' : 'fillOutline';
         drawMode = gl.LINES;
     }
 
@@ -95,7 +95,7 @@ function drawFillTiles(painter, sourceCache, layer, coords, depthMode, colorMode
             indexBuffer = bucket.indexBuffer2;
             segments = bucket.segments2;
             const drawingBufferSize = [gl.drawingBufferWidth, gl.drawingBufferHeight];
-            uniformValues = image ?
+            uniformValues = programName === 'fillOutlinePattern' ?
                 fillOutlinePatternUniformValues(tileMatrix, painter, image, tile, drawingBufferSize) :
                 fillOutlineUniformValues(tileMatrix, drawingBufferSize);
         }
