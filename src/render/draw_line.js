@@ -49,6 +49,10 @@ function drawLineTile(program, painter, tile, bucket, layer, coord, depthMode, c
 
     if (pattern.isPatternMissing(image, painter)) return;
 
+    const uniformValues = dasharray ? lineSDFUniformValues(painter, tile, layer, dasharray) :
+        image ? linePatternUniformValues(painter, tile, layer, image) :
+        lineUniformValues(painter, tile, layer);
+
     if (programChanged) {
         if (dasharray) {
             context.activeTexture.set(gl.TEXTURE0);
@@ -58,10 +62,6 @@ function drawLineTile(program, painter, tile, bucket, layer, coord, depthMode, c
             painter.imageManager.bind(context);
         }
     }
-
-    const uniformValues = dasharray ? lineSDFUniformValues(painter, tile, layer, dasharray) :
-        image ? linePatternUniformValues(painter, tile, layer, image) :
-        lineUniformValues(painter, tile, layer);
 
     program.draw(
             context,
