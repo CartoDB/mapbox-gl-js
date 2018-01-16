@@ -1528,7 +1528,7 @@ class Map extends Camera {
         // Even though `_styleDirty` and `_sourcesDirty` are reset in this
         // method, synchronous events fired during Style#update or
         // Style#_updateSources could have caused them to be set again.
-        if (this._sourcesDirty || this._repaint || this._styleDirty || this._placementDirty || this.isEasing()) {
+        if (this._sourcesDirty || this._repaint || this._styleDirty || this._placementDirty) {
             this._rerender();
         }
 
