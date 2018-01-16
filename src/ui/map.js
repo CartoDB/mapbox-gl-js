@@ -309,9 +309,6 @@ class Map extends Camera {
 
         this.on('move', this._update.bind(this, false));
         this.on('zoom', this._update.bind(this, true));
-        this.on('move', () => {
-            this._rerender();
-        });
 
         if (typeof window !== 'undefined') {
             window.addEventListener('online', this._onWindowOnline, false);
