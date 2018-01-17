@@ -7,6 +7,7 @@ const browser = require('../../util/browser');
 
 import type Map from '../map';
 import type Point from '@mapbox/point-geometry';
+import type Transform from '../../geo/transform';
 
 const inertiaLinearity = 0.3,
     inertiaEasing = util.bezier(0, 0, inertiaLinearity, 1),
@@ -25,8 +26,10 @@ class DragPanHandler {
     _enabled: boolean;
     _active: boolean;
     _pos: Point;
+    _previousPos: ?Point;
     _startPos: Point;
     _inertia: Array<[number, Point]>;
+    _lastMoveEvent: MouseEvent | TouchEvent | void;
 
     constructor(map: Map) {
         this._map = map;
@@ -108,76 +111,82 @@ class DragPanHandler {
 
     _onMove(e: MouseEvent | TouchEvent) {
         if (this._ignoreEvent(e)) return;
+        this._lastMoveEvent = e;
+        e.preventDefault();
 
-        if (!this.isActive()) {
-            this._active = true;
-            this._map.moving = true;
-            this._fireEvent('dragstart', e);
-            this._fireEvent('movestart', e);
+        this._pos = DOM.mousePos(this._el, e);
+        this._drainInertiaBuffer();
+        this._inertia.push([browser.now(), this._pos]);
+
+        if (this.isActive()) {
+            return;
         }
 
-        const pos = DOM.mousePos(this._el, e),
-            map = this._map;
+        this._active = true;
+        this._map.moving = true;
+        this._fireEvent('dragstart', e);
+        this._fireEvent('movestart', e);
 
-        map.stop();
-        this._drainInertiaBuffer();
-        this._inertia.push([browser.now(), pos]);
+        this._map._startAnimation((tr: Transform) => {
+            const e = this._lastMoveEvent;
+            if (!e) return;
+            if (this._previousPos) {
+                tr.setLocationAtPoint(tr.pointLocation(this._previousPos), this._pos);
+                this._fireEvent('drag', e);
+                this._fireEvent('move', e);
+            }
+            delete this._lastMoveEvent;
+            this._previousPos = this._pos;
+        }, () => {
+            this._active = false;
+            delete this._lastMoveEvent;
+            this._fireEvent('dragend', e);
+            this._drainInertiaBuffer();
 
-        map.transform.setLocationAtPoint(map.transform.pointLocation(this._pos), pos);
+            const finish = () => {
+                this._map.moving = false;
+                this._fireEvent('moveend', e);
+            };
 
-        this._fireEvent('drag', e);
-        this._fireEvent('move', e);
+            const inertia = this._inertia;
+            if (inertia.length < 2) {
+                finish();
+                return;
+            }
 
-        this._pos = pos;
+            const last = inertia[inertia.length - 1],
+                first = inertia[0],
+                flingOffset = last[1].sub(first[1]),
+                flingDuration = (last[0] - first[0]) / 1000;
 
-        e.preventDefault();
+            if (flingDuration === 0 || last[1].equals(first[1])) {
+                finish();
+                return;
+            }
+
+            // calculate px/s velocity & adjust for increased initial animation speed when easing out
+            const velocity = flingOffset.mult(inertiaLinearity / flingDuration);
+            let speed = velocity.mag(); // px/s
+
+            if (speed > inertiaMaxSpeed) {
+                speed = inertiaMaxSpeed;
+                velocity._unit()._mult(speed);
+            }
+
+            const duration = speed / (inertiaDeceleration * inertiaLinearity),
+                offset = velocity.mult(-duration / 2);
+
+            this._map.panBy(offset, {
+                duration: duration * 1000,
+                easing: inertiaEasing,
+                noMoveStart: true
+            }, { originalEvent: e });
+        });
     }
 
     _onUp(e: MouseEvent | TouchEvent | FocusEvent) {
         if (!this.isActive()) return;
-
-        this._active = false;
-        this._fireEvent('dragend', e);
-        this._drainInertiaBuffer();
-
-        const finish = () => {
-            this._map.moving = false;
-            this._fireEvent('moveend', e);
-        };
-
-        const inertia = this._inertia;
-        if (inertia.length < 2) {
-            finish();
-            return;
-        }
-
-        const last = inertia[inertia.length - 1],
-            first = inertia[0],
-            flingOffset = last[1].sub(first[1]),
-            flingDuration = (last[0] - first[0]) / 1000;
-
-        if (flingDuration === 0 || last[1].equals(first[1])) {
-            finish();
-            return;
-        }
-
-        // calculate px/s velocity & adjust for increased initial animation speed when easing out
-        const velocity = flingOffset.mult(inertiaLinearity / flingDuration);
-        let speed = velocity.mag(); // px/s
-
-        if (speed > inertiaMaxSpeed) {
-            speed = inertiaMaxSpeed;
-            velocity._unit()._mult(speed);
-        }
-
-        const duration = speed / (inertiaDeceleration * inertiaLinearity),
-            offset = velocity.mult(-duration / 2);
-
-        this._map.panBy(offset, {
-            duration: duration * 1000,
-            easing: inertiaEasing,
-            noMoveStart: true
-        }, { originalEvent: e });
+        this._map.stop();
     }
 
     _onMouseUp(e: MouseEvent | FocusEvent) {
