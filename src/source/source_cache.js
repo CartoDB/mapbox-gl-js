@@ -246,9 +246,6 @@ class SourceCache extends Evented {
         this._setTileReloadTimer(id, tile);
         if (this.getSource().type === 'raster-dem' && tile.dem) this._backfillDEM(tile);
         this._source.fire('data', {dataType: 'source', tile: tile, coord: tile.tileID});
-
-        // HACK this is necessary to fix https://github.com/mapbox/mapbox-gl-js/issues/2986
-        if (this.map) this.map.painter.tileExtentVAO.vao = null;
     }
 
     /**

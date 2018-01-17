@@ -6,7 +6,6 @@ const SourceCache = require('../source/source_cache');
 const EXTENT = require('../data/extent');
 const pixelsToTileUnits = require('../source/pixels_to_tile_units');
 const util = require('../util/util');
-const VertexArrayObject = require('./vertex_array_object');
 const {SegmentVector} = require('../data/segment');
 const {RasterBoundsArray, PosArray, TriangleIndexArray, LineStripIndexArray} = require('../data/array_types');
 const rasterBoundsAttributes = require('../data/raster_bounds_attributes');
@@ -78,17 +77,12 @@ class Painter {
     depthRbo: WebGLRenderbuffer;
     depthRboNeedsClear: boolean;
     tileExtentBuffer: VertexBuffer;
-    tileExtentVAO: VertexArrayObject;
     tileExtentSegments: SegmentVector;
-    tileExtentPatternVAO: VertexArrayObject;
     debugBuffer: VertexBuffer;
-    debugVAO: VertexArrayObject;
     debugSegments: SegmentVector;
     rasterBoundsBuffer: VertexBuffer;
-    rasterBoundsVAO: VertexArrayObject;
     rasterBoundsSegments: SegmentVector;
     viewportBuffer: VertexBuffer;
-    viewportVAO: VertexArrayObject;
     viewportSegments: SegmentVector;
     quadTriangleIndexBuffer: IndexBuffer;
     tileBorderIndexBuffer: IndexBuffer;
@@ -158,8 +152,6 @@ class Painter {
         tileExtentArray.emplaceBack(0, EXTENT);
         tileExtentArray.emplaceBack(EXTENT, EXTENT);
         this.tileExtentBuffer = context.createVertexBuffer(tileExtentArray, posAttributes.members);
-        this.tileExtentVAO = new VertexArrayObject();
-        this.tileExtentPatternVAO = new VertexArrayObject();
         this.tileExtentSegments = SegmentVector.simpleSegment(0, 0, 4, 2);
 
         const debugArray = new PosArray();
@@ -167,10 +159,8 @@ class Painter {
         debugArray.emplaceBack(EXTENT, 0);
         debugArray.emplaceBack(0, EXTENT);
         debugArray.emplaceBack(EXTENT, EXTENT);
-        // debugArray.emplaceBack(0, 0);
         this.debugBuffer = context.createVertexBuffer(debugArray, posAttributes.members);
-        this.debugVAO = new VertexArrayObject();
-        this.debugSegments = SegmentVector.simpleSegment(0, 0, 5, 4); // TODO check/use this
+        this.debugSegments = SegmentVector.simpleSegment(0, 0, 4, 5);
 
         const rasterBoundsArray = new RasterBoundsArray();
         rasterBoundsArray.emplaceBack(0, 0, 0, 0);
@@ -178,7 +168,6 @@ class Painter {
         rasterBoundsArray.emplaceBack(0, EXTENT, 0, EXTENT);
         rasterBoundsArray.emplaceBack(EXTENT, EXTENT, EXTENT, EXTENT);
         this.rasterBoundsBuffer = context.createVertexBuffer(rasterBoundsArray, rasterBoundsAttributes.members);
-        this.rasterBoundsVAO = new VertexArrayObject();
         this.rasterBoundsSegments = SegmentVector.simpleSegment(0, 0, 4, 2);
 
         const viewportArray = new PosArray();
