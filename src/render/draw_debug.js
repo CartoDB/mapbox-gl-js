@@ -51,7 +51,7 @@ function drawDebugTile(painter, sourceCache, coord) {
     }
     const debugTextBuffer = context.createVertexBuffer(debugTextArray, posAttributes.members);
     const debugTextIndexBuffer = context.createIndexBuffer(debugTextIndices);
-    const debugTextSegment = SegmentVector.simpleSegment(0, 0, debugTextArray.length, debugTextArray.length - 1);
+    const debugTextSegment = SegmentVector.simpleSegment(0, 0, debugTextArray.length / 2, debugTextArray.length / 2);
 
     // Draw the halo with multiple 1px lines instead of one wider line because
     // the gl spec doesn't guarantee support for lines with width > 1.
