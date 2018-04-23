@@ -408,6 +408,11 @@ class Painter {
                 draw.debug(this, sourceCache, sourceCache.getVisibleCoordinates());
             }
         }
+
+        // Required for custom WebGL layer
+        if (this.context.extVertexArrayObject) {
+            this.context.bindVertexArrayOES.set(null);
+        }
     }
 
     setupOffscreenDepthRenderbuffer(): void {

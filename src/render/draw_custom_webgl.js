@@ -31,6 +31,9 @@ function drawCustomWebGL(painter: Painter, sourceCache: SourceCache, layer: Cust
     if (drawCallbacks.hasOwnProperty(layer.id)) {
         const callback = drawCallbacks[layer.id];
         if (callback) {
+            if (painter.context.extVertexArrayObject) {
+                painter.context.bindVertexArrayOES.set(null);
+            }
             callback(painter.context.gl, invalidateCurrentWebGLState);
             invalidateCurrentWebGLState();
         }
