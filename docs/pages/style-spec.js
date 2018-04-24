@@ -7,8 +7,7 @@ import LeftNav from '../components/left_nav';
 import TopNav from '../components/top_nav';
 import {highlightJavascript, highlightJSON, highlightMarkup} from '../components/prism_highlight';
 import entries from 'object.entries';
-
-const ref = require('../../src/style-spec/reference/latest');
+import ref from '../../src/style-spec/reference/latest';
 
 const meta = {
     title: 'Mapbox Style Specification',
@@ -150,7 +149,10 @@ const navigation = [
             },
             {
                 "title": "hillshade"
-            }
+            },
+            {
+                "title": "custom-webgl"
+            },
         ]
     },
     {
@@ -225,7 +227,7 @@ const navigation = [
 ];
 
 const sourceTypes = ['vector', 'raster', 'raster-dem', 'geojson', 'image', 'video', 'canvas'];
-const layerTypes = ['background', 'fill', 'line', 'symbol', 'raster', 'circle', 'fill-extrusion', 'heatmap', 'hillshade'];
+const layerTypes = ['background', 'fill', 'line', 'symbol', 'raster', 'circle', 'fill-extrusion', 'heatmap', 'hillshade', 'custom-webgl'];
 
 const {expressions, expressionGroups} = require('../components/expression-metadata');
 

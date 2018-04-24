@@ -1,12 +1,14 @@
 // @flow
 
-const CollisionIndex = require('./collision_index');
-const EXTENT = require('../data/extent');
-const symbolSize = require('./symbol_size');
-const projection = require('./projection');
-const symbolLayoutProperties = require('../style/style_layer/symbol_style_layer_properties').layout;
-const assert = require('assert');
-const pixelsToTileUnits = require('../source/pixels_to_tile_units');
+import CollisionIndex from './collision_index';
+
+import EXTENT from '../data/extent';
+import * as symbolSize from './symbol_size';
+import * as projection from './projection';
+import properties from '../style/style_layer/symbol_style_layer_properties';
+const symbolLayoutProperties = properties.layout;
+import assert from 'assert';
+import pixelsToTileUnits from '../source/pixels_to_tile_units';
 
 import type Transform from '../geo/transform';
 import type StyleLayer from '../style/style_layer';
@@ -118,8 +120,8 @@ class Placement {
         for (const symbolInstance of bucket.symbolInstances) {
             if (!seenCrossTileIDs[symbolInstance.crossTileID]) {
 
-                let placeText = false;
-                let placeIcon = false;
+                let placeText = symbolInstance.feature.text !== undefined;
+                let placeIcon = symbolInstance.feature.icon !== undefined;
                 let offscreen = true;
 
                 let placedGlyphBoxes = null;
@@ -270,6 +272,7 @@ class Placement {
         if (bucket.hasCollisionCircleData()) bucket.collisionCircle.collisionVertexArray.clear();
 
         const layout = bucket.layers[0].layout;
+        const duplicateOpacityState = new JointOpacityState(null, 0, false, false, true);
         const defaultOpacityState = new JointOpacityState(null, 0,
                 layout.get('text-allow-overlap'),
                 layout.get('icon-allow-overlap'), true);
@@ -279,12 +282,12 @@ class Placement {
             const isDuplicate = seenCrossTileIDs[symbolInstance.crossTileID];
 
             let opacityState = this.opacities[symbolInstance.crossTileID];
-            if (!opacityState) {
+            if (isDuplicate) {
+                opacityState = duplicateOpacityState;
+            } else if (!opacityState) {
                 opacityState = defaultOpacityState;
                 // store the state so that future placements use it as a starting point
                 this.opacities[symbolInstance.crossTileID] = opacityState;
-            } else if (isDuplicate) {
-                opacityState = defaultOpacityState;
             }
 
             seenCrossTileIDs[symbolInstance.crossTileID] = true;
@@ -415,4 +418,4 @@ function packOpacity(opacityState: OpacityState): number {
         opacityBits * shift1 + targetBit;
 }
 
-module.exports = Placement;
+export default Placement;

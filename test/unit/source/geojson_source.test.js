@@ -1,12 +1,10 @@
-'use strict';
-
-const test = require('mapbox-gl-js-test').test;
-const Tile = require('../../../src/source/tile');
-const OverscaledTileID = require('../../../src/source/tile_id').OverscaledTileID;
-const GeoJSONSource = require('../../../src/source/geojson_source');
-const Transform = require('../../../src/geo/transform');
-const LngLat = require('../../../src/geo/lng_lat');
-const util = require('../../../src/util/util');
+import { test } from 'mapbox-gl-js-test';
+import Tile from '../../../src/source/tile';
+import { OverscaledTileID } from '../../../src/source/tile_id';
+import GeoJSONSource from '../../../src/source/geojson_source';
+import Transform from '../../../src/geo/transform';
+import LngLat from '../../../src/geo/lng_lat';
+import { extend } from '../../../src/util/util';
 
 const mockDispatcher = {
     send: function () {}
@@ -49,10 +47,12 @@ const hawkHill = {
 test('GeoJSONSource#setData', (t) => {
     function createSource(opts) {
         opts = opts || {};
-        opts = util.extend(opts, { data: {} });
+        opts = extend(opts, { data: {} });
         return new GeoJSONSource('id', opts, {
             send: function (type, data, callback) {
-                return setTimeout(callback, 0);
+                if (callback) {
+                    return setTimeout(callback, 0);
+                }
             }
         });
     }
@@ -84,7 +84,7 @@ test('GeoJSONSource#setData', (t) => {
             _transformRequest: (data) => { return { url: data }; }
         };
         source.dispatcher.send = function(type, params, cb) {
-            if (type === 'geojson.loadData') {
+            if (type === 'geojson.id.loadData') {
                 t.true(params.request.collectResourceTiming, 'collectResourceTiming is true on dispatcher message');
                 setTimeout(cb, 0);
                 t.end();
@@ -100,13 +100,13 @@ test('GeoJSONSource#setData', (t) => {
 test('GeoJSONSource#onRemove', (t) => {
     t.test('broadcasts "removeSource" event', (t) => {
         const source = new GeoJSONSource('id', {data: {}}, {
-            broadcast: function (type, data, callback) {
+            send: function (type, data, callback) {
                 t.false(callback);
                 t.equal(type, 'removeSource');
                 t.deepEqual(data, { type: 'geojson', source: 'id' });
                 t.end();
             },
-            send: function() {
+            broadcast: function() {
                 // Ignore
             }
         });
@@ -127,7 +127,7 @@ test('GeoJSONSource#update', (t) => {
     t.test('sends initial loadData request to dispatcher', (t) => {
         const mockDispatcher = {
             send: function(message) {
-                t.equal(message, 'geojson.loadData');
+                t.equal(message, 'geojson.id.loadData');
                 t.end();
             }
         };
@@ -139,7 +139,7 @@ test('GeoJSONSource#update', (t) => {
     t.test('forwards geojson-vt options with worker request', (t) => {
         const mockDispatcher = {
             send: function(message, params) {
-                t.equal(message, 'geojson.loadData');
+                t.equal(message, 'geojson.id.loadData');
                 t.deepEqual(params.geojsonVtOptions, {
                     extent: 8192,
                     maxZoom: 10,
@@ -172,7 +172,9 @@ test('GeoJSONSource#update', (t) => {
     t.test('fires event when metadata loads', (t) => {
         const mockDispatcher = {
             send: function(message, args, callback) {
-                setTimeout(callback, 0);
+                if (callback) {
+                    setTimeout(callback, 0);
+                }
             }
         };
 
@@ -188,7 +190,9 @@ test('GeoJSONSource#update', (t) => {
     t.test('fires "error"', (t) => {
         const mockDispatcher = {
             send: function(message, args, callback) {
-                setTimeout(callback.bind(null, 'error'), 0);
+                if (callback) {
+                    setTimeout(callback.bind(null, 'error'), 0);
+                }
             }
         };
 
@@ -206,10 +210,12 @@ test('GeoJSONSource#update', (t) => {
         let expectedLoadDataCalls = 2;
         const mockDispatcher = {
             send: function(message, args, callback) {
-                if (message === 'geojson.loadData' && --expectedLoadDataCalls <= 0) {
+                if (message === 'geojson.id.loadData' && --expectedLoadDataCalls <= 0) {
                     t.end();
                 }
-                setTimeout(callback, 0);
+                if (callback) {
+                    setTimeout(callback, 0);
+                }
             }
         };
 

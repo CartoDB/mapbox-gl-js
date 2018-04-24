@@ -102,7 +102,8 @@ declare type RasterDEMSourceSpecification = {
     "minzoom"?: number,
     "maxzoom"?: number,
     "tileSize"?: number,
-    "attribution"?: string
+    "attribution"?: string,
+    "encoding"?: "terrarium" | "mapbox"
 }
 
 declare type GeojsonSourceSpecification = {|
@@ -379,6 +380,20 @@ declare type HillshadeLayerSpecification = {|
     |}
 |}
 
+declare type CustomWebglLayerSpecification = {|
+    "id": string,
+    "type": "custom-webgl",
+    "metadata"?: mixed,
+    "minzoom"?: number,
+    "maxzoom"?: number,
+    "layout"?: {|
+        "visibility"?: "visible" | "none"
+    |},
+    "paint"?: {|
+
+    |}
+|}
+
 declare type BackgroundLayerSpecification = {|
     "id": string,
     "type": "background",
@@ -404,5 +419,6 @@ declare type LayerSpecification =
     | FillExtrusionLayerSpecification
     | RasterLayerSpecification
     | HillshadeLayerSpecification
+    | CustomWebglLayerSpecification
     | BackgroundLayerSpecification;
 
