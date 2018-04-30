@@ -61,6 +61,7 @@
     "eslint-plugin-node": "^5.1.1",
     "eslint-plugin-react": "^7.3.0",
     "execcommand-copy": "^1.1.0",
+    "fastly": "^2.2.0",
     "flow-bin": "^0.66.0",
     "flow-coverage-report": "^0.3.0",
     "flow-remove-types": "^1.0.4",
@@ -97,6 +98,7 @@
     "rollup-plugin-sourcemaps": "^0.4.2",
     "rollup-plugin-uglify": "^3.0.0",
     "rollup-plugin-unassert": "^0.2.0",
+    "s3": "^4.4.0",
     "sinon": "^2.1.0",
     "slugg": "^1.2.1",
     "st": "^1.2.0",
@@ -145,7 +147,8 @@
     "test-cov": "nyc --require=flow-remove-types/register --reporter=text-summary --reporter=lcov --cache run-s test-unit test-expressions test-query test-render",
     "prepublish": "in-publish && run-s build-dev build-min || not-in-publish",
     "remove-flow-types": "flow-remove-types -i node_modules -d src_untyped src",
-    "codegen": "build/run-node build/generate-style-code.js && build/run-node build/generate-struct-arrays.js"
+    "codegen": "build/run-node build/generate-style-code.js && build/run-node build/generate-struct-arrays.js",
+    "release": "./scripts/release.sh"
   },
   "files": [
     "build/",
