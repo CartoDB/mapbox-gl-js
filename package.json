@@ -57,6 +57,7 @@
     "eslint-plugin-react": "^7.3.0",
     "esm": "^3.0.72",
     "execcommand-copy": "^1.1.0",
+    "fastly": "^2.2.0",
     "flow-bin": "^0.77.0",
     "flow-coverage-report": "^0.3.0",
     "github-slugger": "^1.1.1",
@@ -95,6 +96,7 @@
     "rollup-plugin-sourcemaps": "^0.4.2",
     "rollup-plugin-uglify": "^3.0.0",
     "rollup-plugin-unassert": "^0.2.0",
+    "s3": "^4.4.0",
     "sinon": "^5.0.0",
     "slugg": "^1.2.1",
     "st": "^1.2.0",
@@ -143,7 +145,8 @@
     "test-flow-cov": "flow-coverage-report -i 'src/**/*.js' -t html",
     "test-cov": "nyc --require=@mapbox/flow-remove-types/register --reporter=text-summary --reporter=lcov --cache run-s test-unit test-expressions test-query test-render",
     "prepublishOnly": "run-s build-flow-types build-dev build-min build-css build-style-spec test-build",
-    "codegen": "build/run-node build/generate-style-code.js && build/run-node build/generate-struct-arrays.js"
+    "codegen": "build/run-node build/generate-style-code.js && build/run-node build/generate-struct-arrays.js",
+    "release": "./scripts/release.sh"
   },
   "files": [
     "build/",
