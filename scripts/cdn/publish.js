@@ -34,13 +34,15 @@ var client = s3.createClient({
     }
 });
 
-uploadFiles(version);
+uploadFiles('v' + version);
 
 function uploadFiles(version) {
     console.log('Publish', version);
     var uploader = client.uploadDir({
         localDir: 'dist',
+        deleteRemoved: true,
         s3Params: {
+            ACL: 'public-read',
             Bucket: secrets.AWS_S3_BUCKET,
             Prefix: 'mapbox-gl/' + version + '/'
         }
