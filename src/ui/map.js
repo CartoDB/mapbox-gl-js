@@ -1613,6 +1613,7 @@ class Map extends Camera {
 
         if (this.loaded() && !this._loaded) {
             this._loaded = true;
+            this.mapSafeLoaded = true;
             this.fire(new Event('load'));
         }
 
