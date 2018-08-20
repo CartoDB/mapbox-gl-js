@@ -3,16 +3,22 @@
 import { packUint8ToFloat } from '../shaders/encode_attribute';
 import Color from '../style-spec/util/color';
 import { supportsPropertyExpression } from '../style-spec/util/properties';
-import { register } from '../util/web_worker_transfer';
+import { register, serialize, deserialize } from '../util/web_worker_transfer';
 import { PossiblyEvaluatedPropertyValue } from '../style/properties';
 import { StructArrayLayout1f4, StructArrayLayout2f8, StructArrayLayout4f16 } from './array_types';
 import EvaluationParameters from '../style/evaluation_parameters';
+import {
+    Uniform,
+    Uniform1f,
+    UniformColor,
+    type UniformBindings,
+    type UniformLocations
+} from '../render/uniform_binding';
 
 import type Context from '../gl/context';
 import type {TypedStyleLayer} from '../style/style_layer/typed_style_layer';
 import type {StructArray, StructArrayMember} from '../util/struct_array';
 import type VertexBuffer from '../gl/vertex_buffer';
-import type Program from '../render/program';
 import type {
     Feature,
     FeatureState,
@@ -62,8 +68,10 @@ function packColor(color: Color): [number, number] {
  *
  * @private
  */
+
 interface Binder<T> {
-    statistics: { max: number };
+    maxValue: number;
+    uniformName: string;
 
     populatePaintArray(length: number, feature: Feature): void;
     updatePaintArray(start: number, length: number, feature: Feature, featureState: FeatureState): void;
@@ -72,23 +80,25 @@ interface Binder<T> {
 
     defines(): Array<string>;
 
-    setUniforms(context: Context,
-                program: Program,
-                globals: GlobalProperties,
-                currentValue: PossiblyEvaluatedPropertyValue<T>): void;
+    setUniforms(context: Context, uniform: Uniform<*>, globals: GlobalProperties,
+        currentValue: PossiblyEvaluatedPropertyValue<T>): void;
+
+    getBinding(context: Context, location: WebGLUniformLocation): $Subtype<Uniform<*>>;
 }
 
 class ConstantBinder<T> implements Binder<T> {
     value: T;
     name: string;
+    maxValue: number;
     type: string;
-    statistics: { max: number };
+    uniformName: string;
 
     constructor(value: T, name: string, type: string) {
         this.value = value;
         this.name = name;
+        this.uniformName = `u_${this.name}`;
         this.type = type;
-        this.statistics = { max: -Infinity };
+        this.maxValue = -Infinity;
     }
 
     defines() {
@@ -100,25 +110,34 @@ class ConstantBinder<T> implements Binder<T> {
     upload() {}
     destroy() {}
 
-    setUniforms(context: Context,
-                program: Program,
-                globals: GlobalProperties,
-                currentValue: PossiblyEvaluatedPropertyValue<T>) {
-        const value: any = currentValue.constantOr(this.value);
-        const gl = context.gl;
-        if (this.type === 'color') {
-            gl.uniform4f(program.uniforms[`u_${this.name}`], value.r, value.g, value.b, value.a);
-        } else {
-            gl.uniform1f(program.uniforms[`u_${this.name}`], value);
-        }
+    setUniforms(context: Context, uniform: Uniform<*>, globals: GlobalProperties,
+                currentValue: PossiblyEvaluatedPropertyValue<T>): void {
+        uniform.set(currentValue.constantOr(this.value));
+    }
+
+    getBinding(context: Context, location: WebGLUniformLocation): $Subtype<Uniform<any>> {
+        return (this.type === 'color') ?
+            new UniformColor(context, location) :
+            new Uniform1f(context, location);
+    }
+
+    static serialize(binder: ConstantBinder<T>) {
+        const {value, name, type} = binder;
+        return {value: serialize(value), name, type};
+    }
+
+    static deserialize(serialized: {value: T, name: string, type: string}) {
+        const {value, name, type} = serialized;
+        return new ConstantBinder(deserialize(value), name, type);
     }
 }
 
 class SourceExpressionBinder<T> implements Binder<T> {
     expression: SourceExpression;
     name: string;
+    uniformName: string;
     type: string;
-    statistics: { max: number };
+    maxValue: number;
 
     paintVertexArray: StructArray;
     paintVertexAttributes: Array<StructArrayMember>;
@@ -128,7 +147,8 @@ class SourceExpressionBinder<T> implements Binder<T> {
         this.expression = expression;
         this.name = name;
         this.type = type;
-        this.statistics = { max: -Infinity };
+        this.uniformName = `a_${name}`;
+        this.maxValue = -Infinity;
         const PaintVertexArray = type === 'color' ? StructArrayLayout2f8 : StructArrayLayout1f4;
         this.paintVertexAttributes = [{
             name: `a_${name}`,
@@ -161,7 +181,7 @@ class SourceExpressionBinder<T> implements Binder<T> {
                 paintArray.emplaceBack(value);
             }
 
-            this.statistics.max = Math.max(this.statistics.max, value);
+            this.maxValue = Math.max(this.maxValue, value);
         }
     }
 
@@ -179,7 +199,7 @@ class SourceExpressionBinder<T> implements Binder<T> {
                 paintArray.emplace(i, value);
             }
 
-            this.statistics.max = Math.max(this.statistics.max, value);
+            this.maxValue = Math.max(this.maxValue, value);
         }
     }
 
@@ -199,18 +219,23 @@ class SourceExpressionBinder<T> implements Binder<T> {
         }
     }
 
-    setUniforms(context: Context, program: Program) {
-        context.gl.uniform1f(program.uniforms[`a_${this.name}_t`], 0);
+    setUniforms(context: Context, uniform: Uniform<*>): void {
+        uniform.set(0);
+    }
+
+    getBinding(context: Context, location: WebGLUniformLocation): Uniform1f {
+        return new Uniform1f(context, location);
     }
 }
 
 class CompositeExpressionBinder<T> implements Binder<T> {
     expression: CompositeExpression;
     name: string;
+    uniformName: string;
     type: string;
     useIntegerZoom: boolean;
     zoom: number;
-    statistics: { max: number };
+    maxValue: number;
 
     paintVertexArray: StructArray;
     paintVertexAttributes: Array<StructArrayMember>;
@@ -219,10 +244,11 @@ class CompositeExpressionBinder<T> implements Binder<T> {
     constructor(expression: CompositeExpression, name: string, type: string, useIntegerZoom: boolean, zoom: number) {
         this.expression = expression;
         this.name = name;
+        this.uniformName = `a_${this.name}_t`;
         this.type = type;
         this.useIntegerZoom = useIntegerZoom;
         this.zoom = zoom;
-        this.statistics = { max: -Infinity };
+        this.maxValue = -Infinity;
         const PaintVertexArray = type === 'color' ? StructArrayLayout4f16 : StructArrayLayout2f8;
         this.paintVertexAttributes = [{
             name: `a_${name}`,
@@ -256,8 +282,7 @@ class CompositeExpressionBinder<T> implements Binder<T> {
             for (let i = start; i < newLength; i++) {
                 paintArray.emplaceBack(min, max);
             }
-
-            this.statistics.max = Math.max(this.statistics.max, min, max);
+            this.maxValue = Math.max(this.maxValue, min, max);
         }
     }
 
@@ -277,8 +302,7 @@ class CompositeExpressionBinder<T> implements Binder<T> {
             for (let i = start; i < end; i++) {
                 paintArray.emplace(i, min, max);
             }
-
-            this.statistics.max = Math.max(this.statistics.max, min, max);
+            this.maxValue = Math.max(this.maxValue, min, max);
         }
     }
 
@@ -306,8 +330,13 @@ class CompositeExpressionBinder<T> implements Binder<T> {
         }
     }
 
-    setUniforms(context: Context, program: Program, globals: GlobalProperties) {
-        context.gl.uniform1f(program.uniforms[`a_${this.name}_t`], this.interpolationFactor(globals.zoom));
+    setUniforms(context: Context, uniform: Uniform<*>,
+                globals: GlobalProperties): void {
+        uniform.set(this.interpolationFactor(globals.zoom));
+    }
+
+    getBinding(context: Context, location: WebGLUniformLocation): Uniform1f {
+        return new Uniform1f(context, location);
     }
 }
 
@@ -365,7 +394,7 @@ export default class ProgramConfiguration {
             const useIntegerZoom = value.property.useIntegerZoom;
 
             if (value.value.kind === 'constant') {
-                self.binders[property] = new ConstantBinder(value.value, name, type);
+                self.binders[property] = new ConstantBinder(value.value.value, name, type);
                 keys.push(`/u_${name}`);
             } else if (value.value.kind === 'source') {
                 self.binders[property] = new SourceExpressionBinder(value.value, name, type);
@@ -432,15 +461,27 @@ export default class ProgramConfiguration {
         return result;
     }
 
-    setUniforms<Properties: Object>(context: Context, program: Program, properties: PossiblyEvaluated<Properties>, globals: GlobalProperties) {
-        for (const property in this.binders) {
-            const binder = this.binders[property];
-            binder.setUniforms(context, program, globals, properties.get(property));
-        }
-    }
-
     getPaintVertexBuffers(): Array<VertexBuffer> {
         return this._buffers;
+    }
+
+    getUniforms(context: Context, locations: UniformLocations): UniformBindings {
+        const result = {};
+        for (const property in this.binders) {
+            const binder = this.binders[property];
+            result[binder.uniformName] = binder.getBinding(context, locations[binder.uniformName]);
+        }
+        return result;
+    }
+
+    setUniforms<Properties: Object>(context: Context, uniformBindings: UniformBindings, properties: PossiblyEvaluated<Properties>, globals: GlobalProperties) {
+        // Uniform state bindings are owned by the Program, but we set them
+        // from within the ProgramConfiguraton's binder members.
+
+        for (const property in this.binders) {
+            const binder = this.binders[property];
+            binder.setUniforms(context, uniformBindings[binder.uniformName], globals, properties.get(property));
+        }
     }
 
     upload(context: Context) {
